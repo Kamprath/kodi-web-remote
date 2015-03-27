@@ -2,8 +2,8 @@ html, body {
   height: 100%;
 }
 body {
-  background-color: #cecece;
-  color: #eee;
+  background-color: #E3E3E3;
+  color: #333;
   font-family: "Helvetica Neue Light", "HelveticaNeue-Light", "Helvetica Neue", Calibri, Helvetica, Arial;
   margin: auto;
   min-height: 475px;
@@ -15,6 +15,33 @@ body {
   width: 100%;
   position: relative;
   height: 100%;
+}
+
+.hidden {
+    display: none;
+}
+
+.error, .interface {
+    position: relative;
+    height: 100%;
+}
+
+.error {
+    span {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        font-size: 180%;
+    }
+    .error-message {
+        top: 42%;
+    }
+    .error-action {
+        a {
+            text-decoration: none;
+        }
+        top: 48%;
+    }
 }
 
 /* Buttons */
@@ -53,7 +80,7 @@ body {
 .btn-ok {
   background-image: url('/images/ok.png');
   width: 100px;
-  height: 85px;
+  height: 100px;
 }
 .btn-up {
   background-image: url('/images/arrow_up.png');
@@ -61,7 +88,7 @@ body {
 }
 .btn-down {
   background-image: url('/images/arrow_down.png');
-  top: 41%;
+  top: 43%;
 }
 .btn-left {
   background-image: url('/images/arrow_left.png');

@@ -1,31 +1,47 @@
 <!doctype html>
 
-<html>
+<html manifest="osmc_remote.appcache"> <!-- Using Application Cache http://www.html5rocks.com/en/tutorials/appcache/beginner/ -->
 
 	<head>
 		<title>OSMC Remote</title>
-		<link rel="stylesheet" type="text/css" href="css/main.min.css">
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"> <!--http://stackoverflow.com/questions/6771258/whats-the-difference-if-meta-http-equiv-x-ua-compatible-content-ie-edge-e-->
         <meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" type="text/css" href="css/main.min.css">
 	</head>
 
 	<body>
+
         <div class="content">
-            <a class="btn btn-navigate btn-ok" href="#" data-method="Input.Select"></a>
-            <a class="btn btn-navigate btn-up" href="#" data-method="Input.Up"></a>
-            <a class="btn btn-navigate btn-down" href="#" data-method="Input.Down"></a>
-            <a class="btn btn-navigate btn-left" href="#" data-method="Input.Left"></a>
-            <a class="btn btn-navigate btn-right" href="#" data-method="Input.Right"></a>
-            <a class="btn btn-playback btn-playpause play" href="#" data-method="Player.PlayPause"></a>
-            <a class="btn btn-playback btn-stop" href="#" data-method="Player.Stop"></a>
-            <a class="btn btn-menu btn-back" href="#"  data-method="Input.Back"></a>
-            <a class="btn btn-menu btn-home" href="#" data-method="Input.Home"></a>
+            <div class="interface">
+                <!-- Navigation buttons -->
+                <a class="btn btn-menu btn-back" href="#"  data-method="Input.Back"></a>
+                <a class="btn btn-menu btn-home" href="#" data-method="Input.Home"></a>
+                <a class="btn btn-navigate btn-ok" href="#" data-method="Input.Select"></a>
+                <a class="btn btn-navigate btn-up" href="#" data-method="Input.Up"></a>
+                <a class="btn btn-navigate btn-down" href="#" data-method="Input.Down"></a>
+                <a class="btn btn-navigate btn-left" href="#" data-method="Input.Left"></a>
+                <a class="btn btn-navigate btn-right" href="#" data-method="Input.Right"></a>
+
+                <!-- Playback buttons -->
+                <a class="btn btn-playback btn-playpause play" href="#" data-method="Player.PlayPause"></a>
+                <a class="btn btn-playback btn-stop" href="#" data-method="Player.Stop"></a>
+            </div>
+
+            <div class="error hidden">
+                <span class="error-message">Error</span>
+                <span class="error-action"><a href="#">OK</a></span>
+            </div>
         </div>
 
 		<script src="js/main.min.js"></script>
+
         <script>
             $(document).on('ready', function() {
                 App.init();
             });
         </script>
+
 	</body>
+
 </html>
