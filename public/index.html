@@ -5,12 +5,27 @@
 	<head>
 		<title>OSMC Remote</title>
 		<link rel="stylesheet" type="text/css" href="css/main.min.css">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
 	</head>
 
 	<body>
-		<!-- Buttons -->
+        <div class="content">
+            <a class="btn btn-navigate btn-ok" href="#" data-method="Input.Select"></a>
+            <a class="btn btn-navigate btn-up" href="#" data-method="Input.Up"></a>
+            <a class="btn btn-navigate btn-down" href="#" data-method="Input.Down"></a>
+            <a class="btn btn-navigate btn-left" href="#" data-method="Input.Left"></a>
+            <a class="btn btn-navigate btn-right" href="#" data-method="Input.Right"></a>
+            <a class="btn btn-playback btn-playpause play" href="#" data-method="Player.PlayPause"></a>
+            <a class="btn btn-playback btn-stop" href="#" data-method="Player.Stop"></a>
+            <a class="btn btn-menu btn-back" href="#"  data-method="Input.Back"></a>
+            <a class="btn btn-menu btn-home" href="#" data-method="Input.Home"></a>
+        </div>
 
 		<script src="js/main.min.js"></script>
+        <script>
+            $(document).on('ready', function() {
+                App.init();
+            });
+        </script>
 	</body>
-
 </html>

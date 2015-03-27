@@ -10,7 +10,7 @@ var minifyCss = require('gulp-minify-css');
 
 // Concat and minify JS
 gulp.task('build-js', function() {
-    gulp.src('./src/js/*.js')
+    gulp.src(['./src/js/**.js', './src/js/libs/*.js'])
         .pipe(jshint())
         .pipe(concat('main.min.js'))
         .pipe(uglify())
