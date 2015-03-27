@@ -38,4 +38,5 @@ gulp.task('update-appcache', function() {
 gulp.task('default', ['build-js', 'build-css', 'update-appcache'], function() {
     gulp.watch('./src/js/*.js', ['build-js', 'update-appcache']);
     gulp.watch('./src/less/*.less', ['build-css', 'update-appcache']);
+    gulp.watch('./public/*.html', ['update-appcache']);
 });

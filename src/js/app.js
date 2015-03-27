@@ -25,7 +25,10 @@ App = {
         navigateButtons: '.btn-navigate',
         playbackButtons: '.btn-playback',
         playbackButton: '.btn-playpause',
-        menuButtons: '.btn-menu'
+        menuButtons: '.btn-menu',
+        volume: 'input[type=range]',
+        volumeUp: '.btn-volume-up',
+        volumeDown: '.btn-volume-down'
     },
 
     /**
@@ -50,6 +53,7 @@ App = {
             // Get volume
             this.callApiMethod('Application.GetProperties', {'properties': ['volume']}, function(data) {
                 self.properties.volume = data.result.volume;
+                $(self.selectors.volume).val(self.properties.volume);
 
                 // Execute callback if set
                 if (typeof cb !== 'undefined' && cb !== null) cb.bind(self)();
@@ -101,6 +105,11 @@ App = {
         $(document).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function(e) {
             self.setFullscreenStatus(!self.isFullScreen);
         });
+
+        // Set and synchronize volume
+        $(this.selectors.volume).on('change', self.setVolume.bind(self))
+        $(this.selectors.volumeUp).on('click', self.increaseVolume.bind(self));
+        $(this.selectors.volumeDown).on('click', self.decreaseVolume.bind(self));
     },
 
     /**
@@ -190,6 +199,52 @@ App = {
     displayError: function(xhr, status) {
         $(this.selectors.errorMsg).text('Unable to reach the server.');
         this.toggleError(true);
+    },
+
+    /**
+     * Set media center volume to value of range input
+     * @returns {boolean}
+     */
+    setVolume: function() {
+        this.callApiMethod($(this.selectors.volume).data('method'), {volume: parseInt($(this.selectors.volume).val())});
+        this.syncInterface();
+        return false;
+    },
+
+    /**
+     * Increase value of volume range input
+     * @returns {boolean}
+     */
+    increaseVolume: function() {
+        var volume = parseInt($(this.selectors.volume).val());
+        var step = parseInt($(this.selectors.volume).prop('step'));
+        var max = parseInt($(this.selectors.volume).prop('max'));
+        var min = parseInt($(this.selectors.volume).prop('min'));
+
+        if ((volume + step) <= max) {
+            $(this.selectors.volume).val(volume + step);
+            this.setVolume();
+        }
+
+        return false;
+    },
+
+    /**
+     * Increase value of volume range input
+     * @returns {boolean}
+     */
+    decreaseVolume: function() {
+        var volume = parseInt($(this.selectors.volume).val());
+        var step = parseInt($(this.selectors.volume).prop('step'));
+        var max = parseInt($(this.selectors.volume).prop('max'));
+        var min = parseInt($(this.selectors.volume).prop('min'));
+
+        if ((volume - step) >= min) {
+            $(this.selectors.volume).val(volume - step);
+            this.setVolume();
+        }
+
+        return false;
     },
 
     /**

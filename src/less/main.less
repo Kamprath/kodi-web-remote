@@ -41,6 +41,7 @@ body {
             text-decoration: none;
         }
         top: 48%;
+        font-size: 200%;
     }
 }
 
@@ -56,7 +57,7 @@ body {
   height: 85px;
 }
 
-.btn-up, .btn-down, .btn-ok, .btn-pause {
+.btn-up, .btn-down, .btn-ok, input[type=range] {
   // align horizontally and position absolutely
   position: absolute;
   margin-left: auto;
@@ -118,4 +119,22 @@ body {
 .btn-stop {
   background-image: url('/images/stop.png');
   right: 12%;
+}
+.btn-volume-down {
+    background-image: url('/images/volume_down.png');
+    left: 15%;
+}
+.btn-volume-up {
+    background-image: url('/images/volume_up.png');
+    right: 15%;
+}
+input[type=range] {
+    width: 45%;
+}
+.btn-volume-up, .btn-volume-down {
+    width: 25px;
+    height: 25px;
+}
+.btn-volume-up, .btn-volume-down, input[type=range] {
+    bottom: 27%;
 }
