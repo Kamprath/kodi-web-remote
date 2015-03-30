@@ -2,6 +2,7 @@ var App = App || {};
 
 App = {
     serverUri: '/jsonrpc',
+    refreshInterval: 5000,
     isFullScreen: false,
 
     /**
@@ -18,7 +19,7 @@ App = {
     selectors: {
         button: '.btn',
         interface: '.interface',
-        error: '.error',
+        error: '.overlay-error',
         errorMsg: '.error-message',
         errorAction: '.error-action a',
         hidden: 'hidden',
@@ -28,7 +29,11 @@ App = {
         menuButtons: '.btn-menu',
         volume: 'input[type=range]',
         volumeUp: '.btn-volume-up',
-        volumeDown: '.btn-volume-down'
+        volumeDown: '.btn-volume-down',
+        keyboard: '.btn-keyboard',
+        inputOverlay: '.overlay-input',
+        inputText: '.overlay-input input[type=text]',
+        cancelInput: '.overlay-input a'
     },
 
     /**
@@ -36,7 +41,13 @@ App = {
      */
     init: function() {
         this.initEvents();
+        this.initSync();
         this.syncInterface();
+        this.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
+    },
+
+    sendNotification: function(title, message) {
+        this.callApiMethod("GUI.ShowNotification", {title: title, message: message});
     },
 
     /**
@@ -53,7 +64,6 @@ App = {
             // Get volume
             this.callApiMethod('Application.GetProperties', {'properties': ['volume']}, function(data) {
                 self.properties.volume = data.result.volume;
-                $(self.selectors.volume).val(self.properties.volume);
 
                 // Execute callback if set
                 if (typeof cb !== 'undefined' && cb !== null) cb.bind(self)();
@@ -69,6 +79,7 @@ App = {
 
         this.getProperties(function() {
 
+
             // set playback button status
             if (self.properties.playing) {
                 $(self.selectors.playbackButton).removeClass('play');
@@ -79,7 +90,13 @@ App = {
             }
 
             // todo: set volume bar
+            $(self.selectors.volume).val(self.properties.volume);
         });
+    },
+
+    initSync: function() {
+        var self = this;
+        window.setInterval(self.syncInterface.bind(self), self.refreshInterval)
     },
 
     /**
@@ -91,6 +108,8 @@ App = {
         // make API calls on button clicks
         $(this.selectors.navigateButtons + ', ' + this.selectors.menuButtons).on('click', self.navigate.bind(self));
         $(this.selectors.playbackButtons).on('click', self.controlPlayback.bind(self));
+        $(this.selectors.keyboard).on('click', self.showKeyboard.bind(self));
+        $(this.selectors.inputText).on('keydown', self.sendText.bind(self));
 
         // toggle fullscreen on button push
         $(this.selectors.button).on('click', self.useFullScreen.bind(self));
@@ -100,6 +119,7 @@ App = {
 
         // Close error when 'OK' is clicked
         $(this.selectors.errorAction).on('click', function() { self.toggleError(false); return false; });
+        $(this.selectors.cancelInput).on('click', self.hideKeyboard.bind(self));
 
         // set fullscreen status on fullscreen state change
         $(document).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function(e) {
@@ -160,12 +180,12 @@ App = {
         var options = {
             url: this.serverUri,
             type: 'POST',
+            timeout: 2000,
             dataType: 'json',
             contentType: 'application/json; charset=UTF-8',
             error: self.displayError.bind(self),
-            success: function(data) {
-                self.toggleError(false);
-                if (typeof cb !== 'undefined' && cb !== null) cb.bind(self)();
+            success: function(data, xhr) {
+                if (typeof cb !== 'undefined' && cb !== null) (cb.bind(self))(data);
             },
             data: JSON.stringify(data)
         };
@@ -265,5 +285,28 @@ App = {
     controlPlayback: function(e) {
         this.callApiMethod($(e.target).data('method'), {playerid: 0});
         return false;
+    },
+
+    showKeyboard: function(e) {
+        // show an overlay with a text input\
+        $(this.selectors.interface).addClass(this.selectors.hidden);
+        $(this.selectors.inputOverlay).removeClass(this.selectors.hidden);
+        $(this.selectors.inputText).focus();
+        return false;
+    },
+
+    hideKeyboard: function() {
+        $(this.selectors.interface).removeClass(this.selectors.hidden);
+        $(this.selectors.inputOverlay).addClass(this.selectors.hidden);
+        $(this.selectors.inputText).val('');
+        return false;
+    },
+
+    sendText: function(e) {
+        // call API
+        if (e.keyCode === 13) {
+            this.callApiMethod('Input.SendText', {'text': $(this.selectors.inputText).val()});
+            this.hideKeyboard();
+        }
     }
 };

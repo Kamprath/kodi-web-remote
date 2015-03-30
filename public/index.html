@@ -6,6 +6,7 @@
 		<title>OSMC Remote</title>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"> <!--http://stackoverflow.com/questions/6771258/whats-the-difference-if-meta-http-equiv-x-ua-compatible-content-ie-edge-e-->
+        <meta http-equiv="Cache-Control" content="NO-CACHE">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 		<link rel="stylesheet" type="text/css" href="css/main.min.css">
 	</head>
@@ -15,26 +16,33 @@
         <div class="content">
             <div class="interface">
                 <!-- Navigation buttons -->
-                <a class="btn btn-menu btn-back" href="#"  data-method="Input.Back"></a>
-                <a class="btn btn-menu btn-home" href="#" data-method="Input.Home"></a>
+                <a class="btn btn-small btn-menu btn-back" href="#"  data-method="Input.Back"></a>
+                <a class="btn btn-small btn-menu btn-home" href="#" data-method="Input.Home"></a>
                 <a class="btn btn-navigate btn-ok" href="#" data-method="Input.Select"></a>
-                <a class="btn btn-navigate btn-up" href="#" data-method="Input.Up"></a>
-                <a class="btn btn-navigate btn-down" href="#" data-method="Input.Down"></a>
-                <a class="btn btn-navigate btn-left" href="#" data-method="Input.Left"></a>
-                <a class="btn btn-navigate btn-right" href="#" data-method="Input.Right"></a>
+                <a class="btn btn-large btn-navigate btn-up" href="#" data-method="Input.Up"></a>
+                <a class="btn btn-large btn-navigate btn-down" href="#" data-method="Input.Down"></a>
+                <a class="btn btn-large btn-navigate btn-left" href="#" data-method="Input.Left"></a>
+                <a class="btn btn-large btn-navigate btn-right" href="#" data-method="Input.Right"></a>
+
+                <a class="btn btn-small btn-keyboard" href="#" data-method="Input.SendText"></a>
 
                 <a class="btn btn-volume btn-volume-down" href="#" data-method="Application.SetVolume"></a>
                 <input class="btn-volume" type="range" min="0" max="100" step="5" value="100" data-method="Application.SetVolume">
                 <a class="btn btn-volume btn-volume-up" href="#" data-method="Application.SetVolume"></a>
 
                 <!-- Playback buttons -->
-                <a class="btn btn-playback btn-playpause play" href="#" data-method="Player.PlayPause"></a>
-                <a class="btn btn-playback btn-stop" href="#" data-method="Player.Stop"></a>
+                <a class="btn btn-small btn-playback btn-playpause play" href="#" data-method="Player.PlayPause"></a>
+                <a class="btn btn-small btn-playback btn-stop" href="#" data-method="Player.Stop"></a>
             </div>
 
-            <div class="error hidden">
+            <div class="overlay overlay-error hidden">
                 <span class="error-message">Error</span>
                 <span class="error-action"><a href="#">OK</a></span>
+            </div>
+
+            <div class="overlay overlay-input hidden">
+                <input type="text">
+                <span><a href="#">Cancel</a></span>
             </div>
         </div>
 
