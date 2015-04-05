@@ -4,15 +4,8 @@ App = {
     serverUri: '/jsonrpc',
     refreshInterval: 5000,
     isFullScreen: false,
+    players: 0,
     ws: null,
-
-    /**
-     * Media center properties
-     */
-    properties: {
-        playing: null,
-        volume: null
-    },
 
     /**
      * jQuery selectors
@@ -41,65 +34,56 @@ App = {
      * Initialize the application
      */
     init: function() {
-        this.initWs();
-        this.initEvents();
-        this.syncInterface();
-        this.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
+        var self = this;
+
+        this.initWs(function() {
+            self.initInterface();
+            self.initEvents();
+            self.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
+        });
     },
 
     /**
      * Initialize a WebSockets connection if available
      */
-    initWs: function() {
+    initWs: function(cb) {
         if (typeof window.WebSocket !== 'undefined') {
             this.ws = new WebSocket('ws://' + window.location.host + ':9090/jsonrpc');
             this.ws.onmessage = this.handleWsNotification.bind(this);
+            this.ws.onerror = this.displayError.bind(this);
+            this.ws.onclose = this.displayError.bind(this);
+            if (typeof cb !== 'undefined') {
+                this.ws.onopen = cb.bind(this);
+            }
+        } else {
+            if (typeof cb !== 'undefined') cb();
         }
+    },
+
+    /**
+     * Sync starting state of the interface
+     */
+    initInterface: function() {
+        var self = this;
+
+        //  Set play button state
+        this.callApiMethod('Player.GetActivePlayers', null, function(data) {
+             if (typeof data.result.length !== 'undefined' && data.result.length > 0) {
+                 self.players = data.result.length;
+                 if (self.players > 0) {
+                     $(this.selectors.playbackButton).removeClass('play').addClass('pause');
+                 }
+             }
+        });
+        // todo: get this to work
+        // Set volume bar
+        this.callApiMethod('Application.GetProperties', {'properties': ['volume']}, function(data2) {
+            $(self.selectors.volume).val(data2.result.volume.toString());
+        });
     },
 
     sendNotification: function(title, message) {
         this.callApiMethod("GUI.ShowNotification", {title: title, message: message});
-    },
-
-    /**
-     * Retrieve various server properties
-     * @param {function} cb     A callback function
-     */
-    getProperties: function(cb) {
-        var self = this;
-
-        // Determine if anything is actively playing
-        this.callApiMethod('Player.GetActivePlayers', null, function(data) {
-            self.properties.playing = (typeof data.result.length !== 'undefined' && data.result.length > 0);
-
-            // Get volume
-            this.callApiMethod('Application.GetProperties', {'properties': ['volume']}, function(data) {
-                self.properties.volume = data.result.volume;
-
-                // Execute callback if set
-                if (typeof cb !== 'undefined' && cb !== null) cb.bind(self)();
-            });
-        });
-    },
-
-    /**
-     * Synchronize interface button states with server
-     */
-    syncInterface: function() {
-        var self = this;
-
-        this.getProperties(function() {
-            // set playback button status
-            if (self.properties.playing) {
-                $(self.selectors.playbackButton).removeClass('play');
-                $(self.selectors.playbackButton).addClass('pause');
-            } else {
-                $(self.selectors.playbackButton).removeClass('pause');
-                $(self.selectors.playbackButton).addClass('play');
-            }
-
-            $(self.selectors.volume).val(self.properties.volume);
-        });
     },
 
     /**
@@ -127,7 +111,7 @@ App = {
         });
 
         // Set and synchronize volume
-        $(this.selectors.volume).on('change', self.setVolume.bind(self))
+        $(this.selectors.volume).on('change', self.setVolume.bind(self));
         $(this.selectors.volumeUp).on('click', self.increaseVolume.bind(self));
         $(this.selectors.volumeDown).on('click', self.decreaseVolume.bind(self));
     },
@@ -229,10 +213,8 @@ App = {
 
     /**
      * Display an error message as the result of a failed AJAX request
-     * @param xhr
-     * @param status
      */
-    displayError: function(xhr, status) {
+    displayError: function() {
         $(this.selectors.errorMsg).text('Unable to reach the server.');
         this.toggleError(true);
     },
@@ -243,7 +225,6 @@ App = {
      */
     setVolume: function() {
         this.callApiMethod($(this.selectors.volume).data('method'), {volume: parseInt($(this.selectors.volume).val())});
-        this.syncInterface();
         return false;
     },
 
@@ -303,6 +284,11 @@ App = {
         return false;
     },
 
+    /**
+     * Show the text input interface
+     * @param e
+     * @returns {boolean}
+     */
     showKeyboard: function(e) {
         // show an overlay with a text input\
         $(this.selectors.interface).addClass(this.selectors.hidden);
@@ -311,13 +297,22 @@ App = {
         return false;
     },
 
+    /**
+     * Hide text input interface
+     * @returns {boolean}
+     */
     hideKeyboard: function() {
         $(this.selectors.interface).removeClass(this.selectors.hidden);
         $(this.selectors.inputOverlay).addClass(this.selectors.hidden);
         $(this.selectors.inputText).val('');
+        $(this.selectors.playbackButton).focus();
         return false;
     },
 
+    /**
+     * Send user text to server
+     * @param e
+     */
     sendText: function(e) {
         // call API
         if (e.keyCode === 13) {
@@ -326,7 +321,27 @@ App = {
         }
     },
 
+    /**
+     * Handle notifications from server
+     * @param e
+     */
     handleWsNotification: function(e) {
+        var self = this;
+        var data = JSON.parse(e.data);
 
+        if (typeof data.method !== 'undefined') {
+            switch (data.method) {
+                case 'Application.OnVolumeChanged':
+                    $(self.selectors.volume).val(parseInt(data.params.data.volume));
+                    break;
+                case 'Player.OnPlay':
+                    $(self.selectors.playbackButton).removeClass('play').addClass('pause');
+                    break;
+                case 'Player.OnPause':
+                case 'Player.OnStop':
+                   $(self.selectors.playbackButton).removeClass('pause').addClass('play');
+                    break;
+            }
+        }
     }
 };
