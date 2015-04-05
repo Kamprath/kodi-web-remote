@@ -4,6 +4,7 @@ App = {
     serverUri: '/jsonrpc',
     refreshInterval: 5000,
     isFullScreen: false,
+    ws: null,
 
     /**
      * Media center properties
@@ -40,10 +41,20 @@ App = {
      * Initialize the application
      */
     init: function() {
+        this.initWs();
         this.initEvents();
-        this.initSync();
         this.syncInterface();
         this.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
+    },
+
+    /**
+     * Initialize a WebSockets connection if available
+     */
+    initWs: function() {
+        if (typeof window.WebSocket !== 'undefined') {
+            this.ws = new WebSocket('ws://' + window.location.host + ':9090/jsonrpc');
+            this.ws.onmessage = this.handleWsNotification.bind(this);
+        }
     },
 
     sendNotification: function(title, message) {
@@ -59,7 +70,7 @@ App = {
 
         // Determine if anything is actively playing
         this.callApiMethod('Player.GetActivePlayers', null, function(data) {
-            self.properties.playing = (data.result.length > 0);
+            self.properties.playing = (typeof data.result.length !== 'undefined' && data.result.length > 0);
 
             // Get volume
             this.callApiMethod('Application.GetProperties', {'properties': ['volume']}, function(data) {
@@ -78,8 +89,6 @@ App = {
         var self = this;
 
         this.getProperties(function() {
-
-
             // set playback button status
             if (self.properties.playing) {
                 $(self.selectors.playbackButton).removeClass('play');
@@ -89,14 +98,8 @@ App = {
                 $(self.selectors.playbackButton).addClass('play');
             }
 
-            // todo: set volume bar
             $(self.selectors.volume).val(self.properties.volume);
         });
-    },
-
-    initSync: function() {
-        var self = this;
-        window.setInterval(self.syncInterface.bind(self), self.refreshInterval)
     },
 
     /**
@@ -113,9 +116,6 @@ App = {
 
         // toggle fullscreen on button push
         $(this.selectors.button).on('click', self.useFullScreen.bind(self));
-
-        // sync interface when changing volume or playback
-        $(this.selectors.playbackButtons).on('click', self.syncInterface.bind(self));
 
         // Close error when 'OK' is clicked
         $(this.selectors.errorAction).on('click', function() { self.toggleError(false); return false; });
@@ -168,27 +168,43 @@ App = {
      */
     callApiMethod: function(method, params, cb) {
         var self = this;
-
+        var useCallback = typeof cb !== 'undefined' && cb !== null;
         var data = {
             id: 1,
             jsonrpc: "2.0",
             method: method
         };
-
         if (typeof params !== 'undefined' && params !== null) data.params = params;
 
-        var options = {
-            url: this.serverUri,
-            type: 'POST',
-            timeout: 2000,
-            dataType: 'json',
-            contentType: 'application/json; charset=UTF-8',
-            error: self.displayError.bind(self),
-            success: function(data, xhr) {
-                if (typeof cb !== 'undefined' && cb !== null) (cb.bind(self))(data);
-            },
-            data: JSON.stringify(data)
-        };
+        // make the request using WebSockets or AJAX
+        if (this.ws !== null) {
+            self.ws.send(JSON.stringify(data));
+
+            // call the callback (if any) on message event
+            if (useCallback) {
+                var originalHandler = self.ws.onmessage;
+
+                self.ws.onmessage = function(e) {
+                    (cb.bind(self))(JSON.parse(e.data));
+
+                    // reset onmessage handler back to default
+                    self.ws.onmessage = originalHandler.bind(self);
+                };
+            }
+        } else {
+            var options = {
+                url: this.serverUri,
+                type: 'POST',
+                timeout: 2000,
+                dataType: 'json',
+                contentType: 'application/json; charset=UTF-8',
+                error: self.displayError.bind(self),
+                success: function(data, xhr) {
+                    if (useCallback) (cb.bind(self))(data);
+                },
+                data: JSON.stringify(data)
+            };
+        }
 
 
         $.ajax(options);
@@ -308,5 +324,9 @@ App = {
             this.callApiMethod('Input.SendText', {'text': $(this.selectors.inputText).val()});
             this.hideKeyboard();
         }
+    },
+
+    handleWsNotification: function(e) {
+
     }
 };
