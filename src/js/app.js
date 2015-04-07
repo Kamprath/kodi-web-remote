@@ -204,9 +204,9 @@ App = {
                 },
                 data: JSON.stringify(data)
             };
-        }
 
-        $.ajax(options);
+            $.ajax(options);
+        }
     },
 
     /**
