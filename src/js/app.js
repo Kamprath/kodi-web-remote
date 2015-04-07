@@ -5,6 +5,10 @@ App = {
     refreshInterval: 5000,
     ws: null,
 
+    /**
+     * Application data
+     * @type {Object}
+     */
     data: {
         isFullScreen: false,
         playerId: 0,
@@ -17,6 +21,7 @@ App = {
 
     /**
      * jQuery selectors
+     * @type {Object}
      */
     selectors: {
         button: '.btn',
@@ -50,7 +55,8 @@ App = {
     },
 
     /**
-     * Initialize a WebSockets connection
+     * Open a WebSocket connection
+     * @param  {Function} cb (Optional) A callback function to execute after connection is opened
      */
     initWs: function(cb) {
         var self = this;
@@ -79,7 +85,7 @@ App = {
     },
 
     /**
-     * Make API calls to sync the starting state of the interface
+     * Make API calls to update interface state
      */
     initInterface: function() {
         this.callApiMethod('Player.GetActivePlayers');
@@ -87,6 +93,11 @@ App = {
         this.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
     },
 
+    /**
+     * Send a user notification to the server
+     * @param  {string} title   A notification title
+     * @param  {string} message A notification message
+     */
     sendNotification: function(title, message) {
         this.callApiMethod("GUI.ShowNotification", {title: title, message: message});
     },
@@ -228,6 +239,7 @@ App = {
 
     /**
      * Display an error message as the result of a failed AJAX request
+     * @param  {string} msg An error message
      */
     displayError: function(msg) {
         $(this.selectors.errorMsg).text(msg);
@@ -236,7 +248,7 @@ App = {
 
     /**
      * Set media center volume to value of range input
-     * @returns {boolean}
+     * @returns {boolean}   Returns false
      */
     setVolume: function() {
         this.callApiMethod($(this.selectors.volume).data('method'), {volume: parseInt($(this.selectors.volume).val())});
@@ -245,7 +257,7 @@ App = {
 
     /**
      * Increase value of volume range input
-     * @returns {boolean}
+     * @returns {boolean}   Returns false
      */
     increaseVolume: function() {
         var volume = parseInt($(this.selectors.volume).val());
@@ -263,7 +275,7 @@ App = {
 
     /**
      * Increase value of volume range input
-     * @returns {boolean}
+     * @returns {boolean}   Returns false
      */
     decreaseVolume: function() {
         var volume = parseInt($(this.selectors.volume).val());
@@ -280,7 +292,7 @@ App = {
     },
 
     /**
-     * Call API method when navigational buttons are clicked
+     * Call API method when navigational buttons are pressed
      * @param e
      * @returns {boolean}   Returns false
      */
@@ -290,8 +302,8 @@ App = {
     },
 
     /**
-     * Call API method when playback buttons are clicked
-     * @param e
+     * Call API method when playback buttons are pressed
+     * @param e {Object}    The event
      * @returns {boolean}   Returns false
      */
     controlPlayback: function(e) {
@@ -301,7 +313,7 @@ App = {
 
     /**
      * Show the text input interface
-     * @returns {boolean}
+     * @returns {boolean}   Returns false
      */
     showKeyboard: function() {
         // show an overlay with a text input\
@@ -313,7 +325,7 @@ App = {
 
     /**
      * Hide text input interface
-     * @returns {boolean}
+     * @returns {boolean}   Returns false
      */
     hideKeyboard: function() {
         $(this.selectors.interface).removeClass(this.selectors.hidden);
@@ -325,7 +337,7 @@ App = {
 
     /**
      * Send user text to server
-     * @param e
+     * @param e     The event
      */
     sendText: function(e) {
         // call API
@@ -337,7 +349,7 @@ App = {
 
     /**
      * Handle messages from WebSocket
-     * @param e
+     * @param e     The event
      */
     handleWsMsg: function(e) {
         var self = this;
@@ -379,11 +391,12 @@ App = {
         this.updateInterface();
     },
 
+    /**
+     * Update interface state
+     */
     updateInterface: function() {
         $(this.selectors.nowplaying).text(this.data.title);
-
         $(this.selectors.volume).val(this.data.volume);
-
         $(this.selectors.nowPlaying).text((this.data.playerTitle.length > 21) ? this.data.playerTitle.substr(0, 22) + '...' : this.data.playerTitle);
 
         if (this.data.playing) {
