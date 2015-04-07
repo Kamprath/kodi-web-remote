@@ -4,8 +4,17 @@ App = {
     serverUri: '/jsonrpc',
     refreshInterval: 5000,
     isFullScreen: false,
-    players: 0,
     ws: null,
+
+    /**
+     * Data about any currently-playing media
+     */
+    data: {
+        playerId: 0,
+        playerTitle: 'OSMC',
+        volume: null,
+        playing: false
+    },
 
     /**
      * jQuery selectors
@@ -27,7 +36,8 @@ App = {
         keyboard: '.btn-keyboard',
         inputOverlay: '.overlay-input',
         inputText: '.overlay-input input[type=text]',
-        cancelInput: '.overlay-input a'
+        cancelInput: '.overlay-input a',
+        nowPlaying: '.nowplaying'
     },
 
     /**
@@ -39,7 +49,6 @@ App = {
         this.initWs(function() {
             self.initInterface();
             self.initEvents();
-            self.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
         });
     },
 
@@ -49,7 +58,7 @@ App = {
     initWs: function(cb) {
         if (typeof window.WebSocket !== 'undefined') {
             this.ws = new WebSocket('ws://' + window.location.host + ':9090/jsonrpc');
-            this.ws.onmessage = this.handleWsNotification.bind(this);
+            this.ws.onmessage = this.handleWsMsg.bind(this);
             this.ws.onerror = this.displayError.bind(this);
             this.ws.onclose = this.displayError.bind(this);
             if (typeof cb !== 'undefined') {
@@ -61,25 +70,12 @@ App = {
     },
 
     /**
-     * Sync starting state of the interface
+     * Make API calls to sync the starting state of the interface
      */
     initInterface: function() {
-        var self = this;
-
-        //  Set play button state
-        this.callApiMethod('Player.GetActivePlayers', null, function(data) {
-             if (typeof data.result.length !== 'undefined' && data.result.length > 0) {
-                 self.players = data.result.length;
-                 if (self.players > 0) {
-                     $(this.selectors.playbackButton).removeClass('play').addClass('pause');
-                 }
-             }
-        });
-        // todo: get this to work
-        // Set volume bar
-        this.callApiMethod('Application.GetProperties', {'properties': ['volume']}, function(data2) {
-            $(self.selectors.volume).val(data2.result.volume.toString());
-        });
+        this.callApiMethod('Player.GetActivePlayers');
+        this.callApiMethod('Application.GetProperties', {'properties': ['volume']});
+        this.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
     },
 
     sendNotification: function(title, message) {
@@ -280,16 +276,15 @@ App = {
      * @returns {boolean}   Returns false
      */
     controlPlayback: function(e) {
-        this.callApiMethod($(e.target).data('method'), {playerid: 0});
+        this.callApiMethod($(e.target).data('method'), {playerid: this.data.playerId});
         return false;
     },
 
     /**
      * Show the text input interface
-     * @param e
      * @returns {boolean}
      */
-    showKeyboard: function(e) {
+    showKeyboard: function() {
         // show an overlay with a text input\
         $(this.selectors.interface).addClass(this.selectors.hidden);
         $(this.selectors.inputOverlay).removeClass(this.selectors.hidden);
@@ -322,26 +317,59 @@ App = {
     },
 
     /**
-     * Handle notifications from server
+     * Handle messages from WebSocket
      * @param e
      */
-    handleWsNotification: function(e) {
+    handleWsMsg: function(e) {
         var self = this;
-        var data = JSON.parse(e.data);
+        var msg = JSON.parse(e.data);
 
-        if (typeof data.method !== 'undefined') {
-            switch (data.method) {
-                case 'Application.OnVolumeChanged':
-                    $(self.selectors.volume).val(parseInt(data.params.data.volume));
-                    break;
-                case 'Player.OnPlay':
-                    $(self.selectors.playbackButton).removeClass('play').addClass('pause');
-                    break;
-                case 'Player.OnPause':
-                case 'Player.OnStop':
-                   $(self.selectors.playbackButton).removeClass('pause').addClass('play');
-                    break;
+        if (typeof msg !== 'undefined' && msg !== null) {
+            // Handle notification
+            if (typeof msg.method !== 'undefined') {
+                switch (msg.method) {
+                    case 'Application.OnVolumeChanged':
+                        this.data.volume = parseInt(msg.params.data.volume);
+                        break;
+                    case 'Player.OnPlay':
+                        this.data.playing = true;
+                        this.data.playerId = msg.params.data.player.playerid;
+                        this.data.playerTitle = msg.params.data.item.title;
+                        break;
+                    case 'Player.OnPause':
+                        this.data.playing = false;
+                        break;
+                    case 'Player.OnStop':
+                        this.data.playing = false;
+                        this.data.playerTitle = 'OSMC';
+                        break;
+                }
+
+            // Handle response
+            } else if (typeof msg.result !== 'undefined') {
+                if (msg.result.hasOwnProperty('volume')) {
+                    this.data.volume = parseInt(msg.result.volume);
+                } else if (typeof msg.result[0] !== 'undefined' && msg.result[0].hasOwnProperty('playerid')) {
+                    this.data.playerId = msg.result[0].playerid;
+                    this.data.playing = true;
+                }
             }
+        }
+
+        this.updateInterface();
+    },
+
+    updateInterface: function() {
+        $(this.selectors.nowplaying).text(this.data.title);
+
+        $(this.selectors.volume).val(this.data.volume);
+
+        $(this.selectors.nowPlaying).text((this.data.playerTitle.length > 21) ? this.data.playerTitle.substr(0, 22) + '...' : this.data.playerTitle);
+
+        if (this.data.playing) {
+            $(this.selectors.playbackButton).removeClass('play').addClass('pause');
+        } else {
+            $(this.selectors.playbackButton).removeClass('pause').addClass('play');
         }
     }
 };
