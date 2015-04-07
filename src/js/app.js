@@ -3,17 +3,16 @@ var App = App || {};
 App = {
     serverUri: '/jsonrpc',
     refreshInterval: 5000,
-    isFullScreen: false,
     ws: null,
 
-    /**
-     * Data about any currently-playing media
-     */
     data: {
+        isFullScreen: false,
         playerId: 0,
         playerTitle: 'OSMC',
         volume: null,
-        playing: false
+        playing: false,
+        wsConnected: false,
+        failCount: 0
     },
 
     /**
@@ -46,24 +45,34 @@ App = {
     init: function() {
         var self = this;
 
-        this.initWs(function() {
-            self.initInterface();
-            self.initEvents();
-        });
+        this.initWs(self.initInterface);
+        self.initEvents();
     },
 
     /**
-     * Initialize a WebSockets connection if available
+     * Initialize a WebSockets connection
      */
     initWs: function(cb) {
+        var self = this;
+
         if (typeof window.WebSocket !== 'undefined') {
+            this.ws = null; // reset
             this.ws = new WebSocket('ws://' + window.location.host + ':9090/jsonrpc');
             this.ws.onmessage = this.handleWsMsg.bind(this);
-            this.ws.onerror = this.displayError.bind(this);
-            this.ws.onclose = this.displayError.bind(this);
-            if (typeof cb !== 'undefined') {
-                this.ws.onopen = cb.bind(this);
-            }
+            this.ws.onerror = this.ws.onclose = function() {
+                self.data.wsConnected = false;
+                self.data.failCount++;
+                if (failCount >= 5) {
+                    (self.displayError.bind(self))('Failed to reach server.');
+                }
+            };
+            this.ws.onopen = function() {
+                self.data.wsConnected = true;
+                self.data.failCount = 0;
+                if (typeof cb !== 'undefined') {
+                    cb.bind(self)();
+                }
+            };
         } else {
             if (typeof cb !== 'undefined') cb();
         }
@@ -103,7 +112,7 @@ App = {
 
         // set fullscreen status on fullscreen state change
         $(document).on('webkitfullscreenchange mozfullscreenchange fullscreenchange', function(e) {
-            self.setFullscreenStatus(!self.isFullScreen);
+            self.setFullscreenStatus(!self.data.isFullScreen);
         });
 
         // Set and synchronize volume
@@ -117,14 +126,14 @@ App = {
      * @param {bool} status
      */
     setFullscreenStatus: function(status) {
-        this.isFullScreen = status;
+        this.data.isFullScreen = status;
     },
 
     /**
      * Activate fullscreen
      */
     useFullScreen: function() {
-        if (!this.isFullScreen) {
+        if (!this.data.isFullScreen) {
             var doc = window.document;
             var docEl = doc.documentElement;
 
@@ -154,10 +163,7 @@ App = {
             jsonrpc: "2.0",
             method: method
         };
-        if (typeof params !== 'undefined' && params !== null) data.params = params;
-
-        // make the request using WebSockets or AJAX
-        if (this.ws !== null) {
+        function sendWsMsg() {
             self.ws.send(JSON.stringify(data));
 
             // call the callback (if any) on message event
@@ -171,6 +177,18 @@ App = {
                     self.ws.onmessage = originalHandler.bind(self);
                 };
             }
+        }
+
+        if (typeof params !== 'undefined' && params !== null) data.params = params;
+
+        // make the request using WebSockets or AJAX
+        if (this.ws !== null) {
+            // if WS connection was lost, reconnect
+            if (this.data.wsConnected) {
+                sendWsMsg();
+            } else {
+                this.initWs(sendWsMsg);
+            }
         } else {
             var options = {
                 url: this.serverUri,
@@ -178,14 +196,15 @@ App = {
                 timeout: 2000,
                 dataType: 'json',
                 contentType: 'application/json; charset=UTF-8',
-                error: self.displayError.bind(self),
+                error: function() {
+                    self.displayError.bind(self)('Unable to reach the server.');
+                },
                 success: function(data, xhr) {
                     if (useCallback) (cb.bind(self))(data);
                 },
                 data: JSON.stringify(data)
             };
         }
-
 
         $.ajax(options);
     },
@@ -210,8 +229,8 @@ App = {
     /**
      * Display an error message as the result of a failed AJAX request
      */
-    displayError: function() {
-        $(this.selectors.errorMsg).text('Unable to reach the server.');
+    displayError: function(msg) {
+        $(this.selectors.errorMsg).text(msg);
         this.toggleError(true);
     },
 
@@ -333,8 +352,9 @@ App = {
                         break;
                     case 'Player.OnPlay':
                         this.data.playing = true;
-                        this.data.playerId = msg.params.data.player.playerid;
+                        //this.data.playerId = msg.params.data.player.playerid;
                         this.data.playerTitle = msg.params.data.item.title;
+                        this.callApiMethod('Player.GetActivePlayers'); // cause playerid to be updated
                         break;
                     case 'Player.OnPause':
                         this.data.playing = false;
@@ -345,7 +365,7 @@ App = {
                         break;
                 }
 
-            // Handle response
+                // Handle response
             } else if (typeof msg.result !== 'undefined') {
                 if (msg.result.hasOwnProperty('volume')) {
                     this.data.volume = parseInt(msg.result.volume);
