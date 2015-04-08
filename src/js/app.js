@@ -55,54 +55,6 @@ App = {
     },
 
     /**
-     * Open a WebSocket connection
-     * @param  {Function} cb (Optional) A callback function to execute after connection is opened
-     */
-    initWs: function(cb) {
-        var self = this;
-
-        if (typeof window.WebSocket !== 'undefined') {
-            this.ws = null; // reset
-            this.ws = new WebSocket('ws://' + window.location.host + ':9090/jsonrpc');
-            this.ws.onmessage = this.handleWsMsg.bind(this);
-            this.ws.onerror = this.ws.onclose = function() {
-                self.data.wsConnected = false;
-                self.data.failCount++;
-                if (failCount >= 5) {
-                    (self.displayError.bind(self))('Failed to reach server.');
-                }
-            };
-            this.ws.onopen = function() {
-                self.data.wsConnected = true;
-                self.data.failCount = 0;
-                if (typeof cb !== 'undefined') {
-                    cb.bind(self)();
-                }
-            };
-        } else {
-            if (typeof cb !== 'undefined') cb();
-        }
-    },
-
-    /**
-     * Make API calls to update interface state
-     */
-    initInterface: function() {
-        this.callApiMethod('Player.GetActivePlayers');
-        this.callApiMethod('Application.GetProperties', {'properties': ['volume']});
-        this.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
-    },
-
-    /**
-     * Send a user notification to the server
-     * @param  {string} title   A notification title
-     * @param  {string} message A notification message
-     */
-    sendNotification: function(title, message) {
-        this.callApiMethod("GUI.ShowNotification", {title: title, message: message});
-    },
-
-    /**
      * Initialize event handlers
      */
     initEvents: function() {
@@ -130,6 +82,45 @@ App = {
         $(this.selectors.volume).on('change', self.setVolume.bind(self));
         $(this.selectors.volumeUp).on('click', self.increaseVolume.bind(self));
         $(this.selectors.volumeDown).on('click', self.decreaseVolume.bind(self));
+    },
+
+    /**
+     * Open a WebSocket connection
+     * @param  {Function} cb (Optional) A callback function to execute after connection attempt completes
+     */
+    initWs: function(cb) {
+        var self = this;
+
+        if (typeof window.WebSocket !== 'undefined') {
+            this.ws = null; // reset
+            this.ws = new WebSocket('ws://' + window.location.host + ':9090/jsonrpc');
+            this.ws.onmessage = this.handleWsMsg.bind(this);
+            this.ws.onerror = this.ws.onclose = function() {
+                self.data.wsConnected = false;
+                self.data.failCount++;
+                if (self.data.failCount >= 3) {
+                    (self.displayError.bind(self))('Failed to reach server.');
+                }
+            };
+            this.ws.onopen = function() {
+                self.data.wsConnected = true;
+                self.data.failCount = 0;
+                if (typeof cb !== 'undefined') {
+                    cb.bind(self)();
+                }
+            };
+        } else {
+            if (typeof cb !== 'undefined') cb();
+        }
+    },
+
+    /**
+     * Make API calls to update interface state
+     */
+    initInterface: function() {
+        this.callApiMethod('Player.GetActivePlayers');
+        this.callApiMethod('Application.GetProperties', {'properties': ['volume']});
+        this.sendNotification("Remote Connected", "OSMC is now being controlled remotely.");
     },
 
     /**
@@ -161,6 +152,103 @@ App = {
     },
 
     /**
+     * Update interface state
+     */
+    updateInterface: function() {
+        $(this.selectors.nowplaying).text(this.data.title);
+        $(this.selectors.volume).val(this.data.volume);
+        if (this.data.playerTitle !== null) {
+            $(this.selectors.nowPlaying).text((this.data.playerTitle.length > 21) ? this.data.playerTitle.substr(0, 22) + '...' : this.data.playerTitle);
+        }
+
+        if (this.data.playing) {
+            $(this.selectors.playbackButton).removeClass('play').addClass('pause');
+        } else {
+            $(this.selectors.playbackButton).removeClass('pause').addClass('play');
+        }
+    },
+
+    /**
+     * Set media center volume to value of range input
+     * @returns {boolean}   Returns false
+     */
+    setVolume: function() {
+        this.callApiMethod($(this.selectors.volume).data('method'), {volume: parseInt($(this.selectors.volume).val())});
+        return false;
+    },
+
+    /**
+     * Toggle visibility of error overlay
+     * @param {bool} isVisible
+     */
+    toggleError: function(isVisible) {
+        var $interface = $(this.selectors.interface);
+        var $error = $(this.selectors.error);
+
+        if (isVisible) {
+            $interface.addClass(this.selectors.hidden);
+            $error.removeClass(this.selectors.hidden);
+        } else {
+            $interface.removeClass(this.selectors.hidden);
+            $error.addClass(this.selectors.hidden);
+        }
+    },
+
+    /**
+     * Display an error message as the result of a failed AJAX request
+     * @param  {string} msg An error message
+     */
+    displayError: function(msg) {
+        $(this.selectors.errorMsg).text(msg);
+        this.toggleError(true);
+    },
+
+    /**
+     * Show the text input interface
+     * @returns {boolean}   Returns false
+     */
+    showKeyboard: function() {
+        // show an overlay with a text input\
+        $(this.selectors.interface).addClass(this.selectors.hidden);
+        $(this.selectors.inputOverlay).removeClass(this.selectors.hidden);
+        $(this.selectors.inputText).focus();
+        return false;
+    },
+
+    /**
+     * Hide text input interface
+     * @returns {boolean}   Returns false
+     */
+    hideKeyboard: function() {
+        $(this.selectors.interface).removeClass(this.selectors.hidden);
+        $(this.selectors.inputOverlay).addClass(this.selectors.hidden);
+        $(this.selectors.inputText).val('');
+        $(this.selectors.playbackButton).focus();
+        return false;
+    },
+
+    /**
+     * Send a user notification to the server
+     * @param  {string} title   A notification title
+     * @param  {string} message A notification message
+     */
+    sendNotification: function(title, message) {
+        this.callApiMethod("GUI.ShowNotification", {title: title, message: message});
+    },
+
+    /**
+     * Send user text to server
+     * @param e     The event
+     */
+    sendText: function(e) {
+        // call API
+        if (e.keyCode === 13) {
+            this.callApiMethod('Input.SendText', {'text': $(this.selectors.inputText).val()});
+            this.hideKeyboard();
+        }
+    },
+
+    /**
      * Make an API call to the server using JSON-RPC
      * @param {string} method       An API method
      * @param {Object} params       (Optional) An object of parameters
@@ -170,27 +258,15 @@ App = {
         var self = this;
         var useCallback = typeof cb !== 'undefined' && cb !== null;
         var data = {
-            id: 1,
+            id: Math.floor(Math.random()*(500-1))+1,
             jsonrpc: "2.0",
             method: method
         };
+        if (typeof params !== 'undefined' && params !== null) data.params = params;
+
         function sendWsMsg() {
             self.ws.send(JSON.stringify(data));
-
-            // call the callback (if any) on message event
-            if (useCallback) {
-                var originalHandler = self.ws.onmessage;
-
-                self.ws.onmessage = function(e) {
-                    (cb.bind(self))(JSON.parse(e.data));
-
-                    // reset onmessage handler back to default
-                    self.ws.onmessage = originalHandler.bind(self);
-                };
-            }
         }
-
-        if (typeof params !== 'undefined' && params !== null) data.params = params;
 
         // make the request using WebSockets or AJAX
         if (this.ws !== null) {
@@ -221,38 +297,47 @@ App = {
     },
 
     /**
-     * Toggle visibility of error overlay
-     * @param {bool} isVisible
+     * Handle messages from WebSocket
+     * @param e     The event
      */
-    toggleError: function(isVisible) {
-        var $interface = $(this.selectors.interface);
-        var $error = $(this.selectors.error);
+    handleWsMsg: function(e) {
+        var self = this;
+        var msg = JSON.parse(e.data);
 
-        if (isVisible) {
-            $interface.addClass(this.selectors.hidden);
-            $error.removeClass(this.selectors.hidden);
-        } else {
-            $interface.removeClass(this.selectors.hidden);
-            $error.addClass(this.selectors.hidden);
+        if (typeof msg !== 'undefined' && msg !== null) {
+            // Handle notifications
+            if (typeof msg.id === 'undefined') {
+                switch (msg.method) {
+                    case 'Application.OnVolumeChanged':
+                        this.data.volume = parseInt(msg.params.data.volume);
+                        break;
+                    case 'Player.OnPlay':
+                        this.data.playing = true;
+                        this.data.playerTitle = (typeof msg.params.data.item.title !== 'undefined') ? msg.params.data.item.title : 'OSMC';
+                        this.callApiMethod('Player.GetActivePlayers');
+                        break;
+                    case 'Player.OnPause':
+                        this.data.playerTitle = (typeof msg.params.data.item.title !== 'undefined') ? msg.params.data.item.title : 'OSMC';
+                        this.data.playing = false;
+                        break;
+                    case 'Player.OnStop':
+                        this.data.playing = false;
+                        this.data.playerTitle = 'OSMC';
+                        break;
+                }
+
+            // Handle responses
+            } else if (typeof msg.id !== 'undefined') {
+                if (msg.result.hasOwnProperty('volume')) {
+                    this.data.volume = parseInt(msg.result.volume);
+                } else if (typeof msg.result[0] !== 'undefined' && msg.result[0].hasOwnProperty('playerid')) {
+                    this.data.playerId = msg.result[0].playerid;
+                    this.data.playing = true;
+                }
+            }
         }
-    },
 
-    /**
-     * Display an error message as the result of a failed AJAX request
-     * @param  {string} msg An error message
-     */
-    displayError: function(msg) {
-        $(this.selectors.errorMsg).text(msg);
-        this.toggleError(true);
-    },
-
-    /**
-     * Set media center volume to value of range input
-     * @returns {boolean}   Returns false
-     */
-    setVolume: function() {
-        this.callApiMethod($(this.selectors.volume).data('method'), {volume: parseInt($(this.selectors.volume).val())});
-        return false;
+        this.updateInterface();
     },
 
     /**
@@ -309,100 +394,5 @@ App = {
     controlPlayback: function(e) {
         this.callApiMethod($(e.target).data('method'), {playerid: this.data.playerId});
         return false;
-    },
-
-    /**
-     * Show the text input interface
-     * @returns {boolean}   Returns false
-     */
-    showKeyboard: function() {
-        // show an overlay with a text input\
-        $(this.selectors.interface).addClass(this.selectors.hidden);
-        $(this.selectors.inputOverlay).removeClass(this.selectors.hidden);
-        $(this.selectors.inputText).focus();
-        return false;
-    },
-
-    /**
-     * Hide text input interface
-     * @returns {boolean}   Returns false
-     */
-    hideKeyboard: function() {
-        $(this.selectors.interface).removeClass(this.selectors.hidden);
-        $(this.selectors.inputOverlay).addClass(this.selectors.hidden);
-        $(this.selectors.inputText).val('');
-        $(this.selectors.playbackButton).focus();
-        return false;
-    },
-
-    /**
-     * Send user text to server
-     * @param e     The event
-     */
-    sendText: function(e) {
-        // call API
-        if (e.keyCode === 13) {
-            this.callApiMethod('Input.SendText', {'text': $(this.selectors.inputText).val()});
-            this.hideKeyboard();
-        }
-    },
-
-    /**
-     * Handle messages from WebSocket
-     * @param e     The event
-     */
-    handleWsMsg: function(e) {
-        var self = this;
-        var msg = JSON.parse(e.data);
-
-        if (typeof msg !== 'undefined' && msg !== null) {
-            // Handle notification
-            if (typeof msg.method !== 'undefined') {
-                switch (msg.method) {
-                    case 'Application.OnVolumeChanged':
-                        this.data.volume = parseInt(msg.params.data.volume);
-                        break;
-                    case 'Player.OnPlay':
-                        this.data.playing = true;
-                        //this.data.playerId = msg.params.data.player.playerid;
-                        this.data.playerTitle = msg.params.data.item.title;
-                        this.callApiMethod('Player.GetActivePlayers'); // cause playerid to be updated
-                        break;
-                    case 'Player.OnPause':
-                        this.data.playing = false;
-                        break;
-                    case 'Player.OnStop':
-                        this.data.playing = false;
-                        this.data.playerTitle = 'OSMC';
-                        break;
-                }
-
-                // Handle response
-            } else if (typeof msg.result !== 'undefined') {
-                if (msg.result.hasOwnProperty('volume')) {
-                    this.data.volume = parseInt(msg.result.volume);
-                } else if (typeof msg.result[0] !== 'undefined' && msg.result[0].hasOwnProperty('playerid')) {
-                    this.data.playerId = msg.result[0].playerid;
-                    this.data.playing = true;
-                }
-            }
-        }
-
-        this.updateInterface();
-    },
-
-    /**
-     * Update interface state
-     */
-    updateInterface: function() {
-        $(this.selectors.nowplaying).text(this.data.title);
-        $(this.selectors.volume).val(this.data.volume);
-        $(this.selectors.nowPlaying).text((this.data.playerTitle.length > 21) ? this.data.playerTitle.substr(0, 22) + '...' : this.data.playerTitle);
-
-        if (this.data.playing) {
-            $(this.selectors.playbackButton).removeClass('play').addClass('pause');
-        } else {
-            $(this.selectors.playbackButton).removeClass('pause').addClass('play');
-        }
     }
 };
