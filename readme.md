@@ -1,7 +1,7 @@
 # Kodi Web Remote
 When installed on a Kodi server, this web app allows remote control of the server from a mobile browser.
 
-<img src="http://johnny.website/images/kodi_remote_interface.jpg">
+<img src="http://johnny.website/images/web_interface.jpg">
 
 # Setup
 * Enable the web interface on your Kodi server by enabling the setting `Settings → Services → Webserver → Allow control of XBMC/Kodi via HTTP`.
